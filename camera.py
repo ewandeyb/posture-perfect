@@ -23,7 +23,7 @@ class CameraStream:
         # FPS calculation
         self.frame_count += 1
         elapsed = time.time() - self.start_time
-        if elapsed >= 1:
+        if elapsed > 0 and elapsed >= 1:
             self.fps = self.frame_count / elapsed
             self.frame_count = 0
             self.start_time = time.time()
