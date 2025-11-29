@@ -36,7 +36,7 @@ def main():
             
             # Detect pose landmarks
             annotated_frame, landmarks, results = pose_detector.detect(frame)
-            # TODO: Add logic to check if the pose is correct 
+            # TODO: Add logic to check if the pose is correct
 
             # Get specific landmarks
             # left_shoulder = pose_detector.get_landmark_by_name(landmarks, 'LEFT_SHOULDER')
@@ -45,12 +45,12 @@ def main():
             # Display pose detection status
             if landmarks:
                 status_text = f"Pose detected: {len(landmarks)} landmarks"
-                cv2.putText(annotated_frame, status_text, (10, 70),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                color = (0, 255, 0)
             else:
                 status_text = "No pose detected"
-                cv2.putText(annotated_frame, status_text, (10, 70),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                color = (0, 0, 255)
+            cv2.putText(annotated_frame, status_text, (10, 70),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
             # Convert to RGB for Streamlit
             frame_rgb = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
