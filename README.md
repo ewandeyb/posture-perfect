@@ -1,5 +1,11 @@
 ### **Vision-Based Rehabilitation Assistance Using Pose Estimation and Motion Tracking**
 
+
+**Online Reference**
+For recovery exercises we referred to this video, specifically on Scoliosis
+https://www.youtube.com/watch?v=qjSllPcEooU
+
+
 **About the Project**
 This project proposes a computer vision system designed to assist individuals recovering at home by providing automated movement tracking and corrective feedback through a camera interface.It addresses the lack of real-time supervision for home patients, aiming to prevent improper movement and delayed recovery.
 
