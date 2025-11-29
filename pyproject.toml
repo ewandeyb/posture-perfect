@@ -3,7 +3,9 @@ name = "posture-perfect"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
+    "mediapipe>=0.10.21",
+    "opencv-contrib-python>=4.11.0.86",
     "streamlit>=1.51.0",
 ]
