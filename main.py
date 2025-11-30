@@ -4,14 +4,16 @@ import time
 
 from camera import CameraStream
 from pose_detector import PoseDetector
+from ui.sidebar import sidebar
+from ui.main_content import main_content
 
 def main():
     st.set_page_config(page_title="Posture Perfect", layout="wide")
 
-    st.title("Posture Perfect")
-    st.write("Live camera feed and FPS display.")
-
-    st.sidebar.title("Camera Settings")
+    # Render sidebar and get selected exercise
+    selected_exercise = sidebar()
+    
+    main_content(selected_exercise)
 
     placeholder = st.empty()
 
