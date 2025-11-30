@@ -4,14 +4,46 @@ import time
 
 from camera import CameraStream
 from pose_detector import PoseDetector
+from config import EXERCISES, EXERCISE_INSTRUCTIONS
 
 def main():
     st.set_page_config(page_title="Posture Perfect", layout="wide")
 
-    st.title("Posture Perfect")
-    st.write("Live camera feed and FPS display.")
+    # Sidebar settings
+    st.sidebar.title("Settings")
+    
+    # Exercise selection dropdown
+    st.sidebar.subheader("Recovery Exercise")
+    selected_exercise = st.sidebar.selectbox(
+        "Choose an exercise:",
+        options=EXERCISES,
+        index=0,
+        help="Select a recovery exercise to perform"
+    )
+    
+    # Store selected exercise in session state
+    st.session_state.selected_exercise = selected_exercise
+    
+    st.sidebar.divider()
+    st.sidebar.subheader("Camera Settings")
 
-    st.sidebar.title("Camera Settings")
+    # Main content area
+    st.title("Posture Perfect")
+    
+    # Display selected exercise in main area
+    if selected_exercise and selected_exercise != "Select an exercise...":
+        st.info(f"📋 **Current Exercise:** {selected_exercise}")
+        
+        # Show exercise instructions
+        with st.expander("📖 How to perform this exercise", expanded=True):
+            if selected_exercise in EXERCISE_INSTRUCTIONS:
+                st.write(EXERCISE_INSTRUCTIONS[selected_exercise])
+            else:
+                st.write("Instructions for this exercise are being updated.")
+    else:
+        st.warning("⚠️ Please select an exercise from the sidebar to begin.")
+    
+    st.write("Live camera feed and FPS display.")
 
     placeholder = st.empty()
 
