@@ -10,7 +10,10 @@ def local_css():
     st.markdown("""
         <style>
         .block-container { padding-top: 1rem; padding-bottom: 1rem; }
-        .stMetric { background-color: #f0f2f6; padding: 10px; border-radius: 5px; text-align: center;}
+        .stMetric { background-color: #1e293b; padding: 10px; border-radius: 5px; text-align: center; color: white;}
+        .stMetric label { color: #cbd5e1 !important; }
+        .stMetric [data-testid="stMetricValue"] { color: white !important; }
+        .stMetric [data-testid="stMetricDelta"] { color: #94a3b8 !important; }
         </style>
     """, unsafe_allow_html=True)
 
