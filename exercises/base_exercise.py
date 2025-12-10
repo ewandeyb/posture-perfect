@@ -110,3 +110,18 @@ class BaseExercise(ABC):
         Override to provide exercise-specific warnings.
         """
         return []
+    
+    def get_video_url(self) -> str | None:
+        """
+        Return URL to a demonstration video for this exercise.
+        Can be a YouTube URL, direct video file URL, or local file path.
+        Returns None if no video is available.
+        
+        Override to provide exercise-specific video links.
+        
+        Examples:
+            - YouTube: "https://www.youtube.com/watch?v=VIDEO_ID"
+            - Direct video: "https://example.com/video.mp4"
+            - Local file: "videos/exercise_demo.mp4"
+        """
+        return None

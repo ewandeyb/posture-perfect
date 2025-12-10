@@ -319,3 +319,6 @@ class NeckSideToSide(BaseExercise):
             "❌ Tilting forward or backward instead of side to side",
             "❌ Not working both sides equally"
         ]
+    
+    def get_video_url(self) -> str | None:
+        return "https://youtu.be/qjSllPcEooU?t=156"

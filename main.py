@@ -2,8 +2,59 @@ import streamlit as st
 import cv2
 import time
 import pandas as pd
+from urllib.parse import urlparse, parse_qs
 from exercises.exercise_factory import ExerciseFactory
 from pose_detector import PoseDetector
+
+
+def _parse_youtube(video_url: str) -> tuple[str | None, int | None]:
+    """
+    Extract YouTube video ID and optional start time (seconds) from URL.
+    Supports:
+      - https://www.youtube.com/watch?v=ID&t=156
+      - https://youtu.be/ID?t=156
+      - start= / t= with h/m/s (e.g., 2m36s)
+    """
+    parsed = urlparse(video_url)
+    query = parse_qs(parsed.query)
+
+    # Video ID
+    video_id = None
+    if "youtube.com" in parsed.netloc:
+        video_id = query.get("v", [None])[0]
+    elif "youtu.be" in parsed.netloc:
+        video_id = parsed.path.lstrip("/").split("/")[0] or None
+
+    # Start time
+    def _parse_time(value: str) -> int | None:
+        if value.isdigit():
+            return int(value)
+        total = 0
+        num = ""
+        for ch in value:
+            if ch.isdigit():
+                num += ch
+            else:
+                if not num:
+                    continue
+                if ch == "h":
+                    total += int(num) * 3600
+                elif ch == "m":
+                    total += int(num) * 60
+                elif ch == "s":
+                    total += int(num)
+                num = ""
+        if num:
+            total += int(num)
+        return total if total > 0 else None
+
+    start = None
+    if "t" in query:
+        start = _parse_time(query["t"][0])
+    elif "start" in query:
+        start = _parse_time(query["start"][0])
+
+    return video_id, start
 
 # 1. Add some CSS to reduce whitespace and stabilize the layout
 def local_css():
@@ -41,7 +92,6 @@ def main():
         
         exercise = st.session_state.current_exercise
         
-        st.divider()
         st.subheader("📋 Instructions")
         for i, instruction in enumerate(exercise.get_instructions(), 1):
             st.write(f"{i}. {instruction}")
@@ -82,6 +132,30 @@ def main():
         col_start, col_stop = st.columns(2)
         start = col_start.button("▶️ Start", use_container_width=True, type="primary")
         stop = col_stop.button("⏹️ Stop", use_container_width=True)
+
+        # Demonstration video below controls (collapsible) to keep top aligned with metrics
+        video_url = exercise.get_video_url()
+        if video_url:
+            with st.expander("🎥 Demonstration video", expanded=False):
+                if "youtube.com" in video_url or "youtu.be" in video_url:
+                    video_id, start_time = _parse_youtube(video_url)
+                    if video_id:
+                        params = f"?start={start_time}" if start_time else ""
+                        youtube_embed = f"https://www.youtube.com/embed/{video_id}{params}"
+                        st.markdown(
+                            f'<iframe width="100%" height="230" src="{youtube_embed}" '
+                            'frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; '
+                            'gyroscope; picture-in-picture" allowfullscreen></iframe>',
+                            unsafe_allow_html=True
+                        )
+                    else:
+                        st.markdown(f"[▶️ Watch Video: {video_url}]({video_url})")
+                else:
+                    try:
+                        st.video(video_url, format="video/mp4")
+                    except:
+                        st.markdown(f"[▶️ Watch Video: {video_url}]({video_url})")
+                st.markdown(f"🔗 [Open in new tab]({video_url})")
 
     if start:
         st.session_state.running = True
