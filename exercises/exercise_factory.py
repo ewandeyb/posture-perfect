@@ -6,7 +6,7 @@ import importlib
 import pkgutil
 from typing import Dict, List, Type, Optional
 from pathlib import Path
-
+from exercises.base_exercise import BaseExercise
 
 class ExerciseFactory:
     """
