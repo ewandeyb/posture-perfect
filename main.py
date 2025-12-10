@@ -65,6 +65,10 @@ def main():
         # 2. STABILITY FIX: Define placeholders in a specific order.
         # Score is at the top (fixed height) so it never jumps.
         score_container = st.container()
+        
+        # Rep counter widget
+        rep_container = st.container()
+        
         st.divider() 
         
         # Metrics in the middle
@@ -90,11 +94,12 @@ def main():
             exercise,
             video_placeholder,
             score_container,
+            rep_container,
             metrics_container,
             feedback_container
         )
 
-def run_session(exercise, video_ph, score_container, metrics_container, feedback_container):
+def run_session(exercise, video_ph, score_container, rep_container, metrics_container, feedback_container):
     detector = PoseDetector()
     cap = cv2.VideoCapture(0)
     frame_count = 0
@@ -106,6 +111,8 @@ def run_session(exercise, video_ph, score_container, metrics_container, feedback
     # Create specific elements inside the containers ONCE
     with score_container:
         score_metric = st.empty()
+    with rep_container:
+        rep_metric = st.empty()
     with metrics_container:
         angle_chart = st.empty()
     with feedback_container:
@@ -125,18 +132,35 @@ def run_session(exercise, video_ph, score_container, metrics_container, feedback
         results = detector.process(frame_rgb)
         
         if results.pose_landmarks:
-            landmarks = detector.extract_landmarks(results, exercise.get_required_landmarks())
+            # Check visibility of required landmarks
+            required_landmarks = exercise.get_required_landmarks()
+            all_visible, missing_landmarks = detector.check_visibility(
+                results, 
+                required_landmarks,
+                min_visibility=0.5
+            )
+            
+            # Only extract landmarks that are visible
+            landmarks = detector.extract_landmarks(results, required_landmarks)
+            
+            # If not all visible, add missing info to landmarks dict
+            if not all_visible:
+                landmarks['_missing_points'] = missing_landmarks
+                landmarks['_all_visible'] = False
+            else:
+                landmarks['_all_visible'] = True
+            
             metrics = exercise.calculate_metrics(landmarks)
             validation = exercise.validate_form(metrics, frame_count)
             
             # Draw Skeleton (Happens every frame for smoothness)
             frame_rgb = detector.draw_landmarks(frame_rgb, results, exercise.get_visualization_points())
-            frame_rgb = draw_overlay_feedback(frame_rgb, validation)
+            frame_rgb = draw_overlay_feedback(frame_rgb, validation, exercise)
 
             # Update UI (Throttled for readability)
             current_time = time.time()
             if current_time - last_ui_update_time > UI_UPDATE_INTERVAL:
-                update_dashboard(validation, score_metric, angle_chart, feedback_alert)
+                update_dashboard(validation, score_metric, rep_metric, angle_chart, feedback_alert)
                 last_ui_update_time = current_time
         
         # Video updates every frame (30fps)
@@ -145,7 +169,7 @@ def run_session(exercise, video_ph, score_container, metrics_container, feedback
     
     cap.release()
 
-def update_dashboard(validation, score_metric, angle_chart, feedback_alert):
+def update_dashboard(validation, score_metric, rep_metric, angle_chart, feedback_alert):
     """Updates the side dashboard. Separated for cleanliness."""
     
     # 1. Update Score
@@ -159,6 +183,27 @@ def update_dashboard(validation, score_metric, angle_chart, feedback_alert):
         value=f"{score:.0f}/100", 
         delta=f"{'Keep it up!' if score > 80 else 'Check form'}",
         delta_color=delta_color
+    )
+    
+    # 2. Update Rep Counter
+    details = validation.details
+    total_reps = details.get('reps', 0)
+    left_reps = details.get('left_reps', 0)
+    right_reps = details.get('right_reps', 0)
+    
+    # Show rep count with breakdown if available
+    if left_reps > 0 or right_reps > 0:
+        rep_text = f"L: {left_reps} | R: {right_reps}"
+        delta_text = f"Total: {total_reps}"
+    else:
+        rep_text = f"{total_reps}"
+        delta_text = "Keep going!"
+    
+    rep_metric.metric(
+        label="Reps",
+        value=rep_text,
+        delta=delta_text,
+        delta_color="normal"
     )
 
     # 2. Update Angles (Using a small dataframe is cleaner than text lists)
@@ -179,13 +224,31 @@ def update_dashboard(validation, score_metric, angle_chart, feedback_alert):
     else:
         feedback_alert.info("Perfect form!", icon="✨")
 
-def draw_overlay_feedback(frame, validation):
+def draw_overlay_feedback(frame, validation, exercise):
     """Draw simple status on video frame only"""
     # Keep this minimal so the video isn't cluttered
     color = (0, 255, 0) if validation.is_correct else (255, 0, 0)
     
     # Simple top bar
     cv2.rectangle(frame, (0, 0), (frame.shape[1], 10), color, -1)
+    
+    # Draw midpoint line and indicators for neck_side_to_side exercise
+    if exercise.get_name() == "Neck Side to Side":
+        h, w = frame.shape[:2]
+        midpoint_x = int(w * 0.5)  # Midpoint at 50% of frame width
+        
+        # Draw vertical line at midpoint (yellow color for visibility)
+        cv2.line(frame, (midpoint_x, 0), (midpoint_x, h), (0, 255, 255), 2)
+        
+        # Add label at top
+        cv2.putText(frame, "MIDPOINT", (midpoint_x - 50, 30), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+        
+        # Draw indicators showing which side is which
+        cv2.putText(frame, "LEFT", (10, h - 20), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.putText(frame, "RIGHT", (w - 80, h - 20), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     
     return frame
 
