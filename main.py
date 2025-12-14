@@ -65,6 +65,9 @@ def local_css():
         .stMetric label { color: #cbd5e1 !important; }
         .stMetric [data-testid="stMetricValue"] { color: white !important; }
         .stMetric [data-testid="stMetricDelta"] { color: #94a3b8 !important; }
+        /* Ensure feedback lists render properly */
+        .stAlert ul { margin: 0.5rem 0; padding-left: 1.5rem; }
+        .stAlert li { margin: 0.25rem 0; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -289,12 +292,15 @@ def update_dashboard(validation, score_metric, rep_metric, angle_chart, feedback
 
     # 3. Update Feedback Messages
     if validation.feedback_messages:
-        # Join messages with bullets
-        msg_text = "\n".join([f"• {msg}" for msg in validation.feedback_messages])
+        # Format as markdown list for better readability
+        msg_list = "\n".join([f"- {msg}" for msg in validation.feedback_messages])
+        
+        # Use markdown with proper list formatting
+        # Streamlit alert boxes support markdown, so this should render as a list
         if validation.is_correct:
-            feedback_alert.success(msg_text, icon="✅")
+            feedback_alert.success(msg_list, icon="✅")
         else:
-            feedback_alert.warning(msg_text, icon="⚠️")
+            feedback_alert.warning(msg_list, icon="⚠️")
     else:
         feedback_alert.info("Perfect form!", icon="✨")
 
