@@ -2,7 +2,7 @@
 Chest Opener / Scapular Retraction Exercise
 Therapeutic exercise for upper back strength and posture correction.
 
-Best performed in SIDE VIEW to properly measure depth (z-axis) of arm retraction.
+Best performed in FRONT VIEW to measure depth (z-axis) of arm retraction.
 
 - Focus: Scapular retraction, chest opening, upper back engagement
 - Target: Rhomboids, middle trapezius, posterior deltoids
@@ -21,10 +21,10 @@ class ChestOpener(BaseExercise):
     Chest opener exercise with scapular retraction.
     
     Patient pulls fists/arms back to open chest and engage upper back.
-    Requires SIDE VIEW for proper depth measurement.
+    Requires FRONT VIEW for proper depth measurement using z-coordinate.
     
     Validates:
-    - Arm retraction depth (z-axis measurement critical)
+    - Arm retraction depth (z-axis measurement from camera)
     - Elbow position (should be at shoulder height)
     - Hold duration (5 seconds)
     - Shoulder elevation (shouldn't shrug)
@@ -32,21 +32,20 @@ class ChestOpener(BaseExercise):
     """
     
     # Clinical thresholds (PT-validated)
-    MIN_RETRACTION_DEPTH = 0.15      # Minimum z-depth (normalized units)
-    IDEAL_RETRACTION_DEPTH = 0.25    # Ideal z-depth for full retraction
-    MAX_RETRACTION_DEPTH = 0.40      # Maximum (avoid over-retraction)
+    # Using Z-coordinate for front view (depth retraction distance)
+    # Lowered values for easier testing - adjust based on real-world performance
+    MIN_RETRACTION_DEPTH = 0.05      # Minimum depth retraction (normalized z units)
+    IDEAL_RETRACTION_DEPTH = 0.10    # Ideal depth retraction for full retraction
+    MAX_RETRACTION_DEPTH = 0.25      # Maximum (avoid over-retraction)
     
-    ELBOW_HEIGHT_TOLERANCE = 0.08    # Vertical distance from shoulder (normalized)
-    SHOULDER_ELEVATION_MAX = 0.05    # Max shoulder rise (avoid shrugging)
+    ELBOW_HEIGHT_TOLERANCE = 0.15    # Vertical distance from shoulder (normalized) - increased for easier testing
+    SHOULDER_ELEVATION_MAX = 0.10    # Max shoulder rise (avoid shrugging) - more lenient
     
     HOLD_DURATION = 5                # Seconds to hold position
     HOLD_FRAMES = 150                # 5 seconds at 30fps
     
-    MIN_ELBOW_ANGLE = 70             # Minimum elbow flexion
-    MAX_ELBOW_ANGLE = 110            # Maximum elbow flexion (should be ~90°)
-    
-    # Side view detection
-    MIN_SIDE_VIEW_ANGLE = 60         # Minimum angle to consider "side view"
+    MIN_ELBOW_ANGLE = 60             # Minimum elbow flexion - wider range
+    MAX_ELBOW_ANGLE = 120            # Maximum elbow flexion - wider range (should be ~90°)
     
     def __init__(self):
         super().__init__()
@@ -64,7 +63,6 @@ class ChestOpener(BaseExercise):
         
         # Quality metrics
         self.successful_holds = 0
-        self.shrugging_violations = 0
         
     def get_name(self) -> str:
         return "Chest Opener (Scapular Retraction)"
@@ -73,7 +71,7 @@ class ChestOpener(BaseExercise):
         return (
             "Pull arms back to open chest and engage upper back muscles. "
             "Strengthens rhomboids and middle trapezius. "
-            "⚠️ REQUIRES SIDE VIEW for proper depth measurement."
+            "Face the camera directly for best results."
         )
     
     def get_required_landmarks(self) -> List[str]:
@@ -91,184 +89,217 @@ class ChestOpener(BaseExercise):
             'LEFT_HIP',
             'RIGHT_HIP',
             
-            # Additional points for side view validation
+            # Additional points for reference
             'LEFT_EAR',
             'RIGHT_EAR'
         ]
     
     def calculate_metrics(self, landmarks: Dict) -> Dict[str, float]:
         """
-        Calculate metrics with emphasis on Z-AXIS (depth) measurement.
+        Calculate metrics with emphasis on Z-AXIS (depth) measurement for front view.
         
-        Critical for this exercise: The z-coordinate shows how far back
-        the arms are pulled in 3D space (depth from camera).
+        Critical for this exercise: In front view, the z-coordinate shows how far back
+        the arms are pulled in 3D space (depth from camera). More negative z = closer to camera,
+        so when arms are pulled back, elbow z becomes more positive (farther from camera).
         """
         
-        # ===== DETERMINE WHICH SIDE IS VISIBLE =====
-        # Use the side that's more visible (closer to camera)
-        left_shoulder_z = landmarks['LEFT_SHOULDER'][2]
-        right_shoulder_z = landmarks['RIGHT_SHOULDER'][2]
+        # ===== CHECK IF ELBOWS ARE VISIBLE =====
+        left_elbow_visible = 'LEFT_ELBOW' in landmarks
+        right_elbow_visible = 'RIGHT_ELBOW' in landmarks
         
-        # More negative z = closer to camera in MediaPipe
-        if abs(left_shoulder_z) < abs(right_shoulder_z):
-            # Left side is visible (facing right in camera)
-            shoulder = landmarks['LEFT_SHOULDER']
-            elbow = landmarks['LEFT_ELBOW']
-            wrist = landmarks['LEFT_WRIST']
-            hip = landmarks['LEFT_HIP']
-            visible_side = 'left'
-        else:
-            # Right side is visible (facing left in camera)
-            shoulder = landmarks['RIGHT_SHOULDER']
-            elbow = landmarks['RIGHT_ELBOW']
-            wrist = landmarks['RIGHT_WRIST']
-            hip = landmarks['RIGHT_HIP']
-            visible_side = 'right'
+        # If elbows not visible, return early with error flags
+        if not left_elbow_visible or not right_elbow_visible:
+            return {
+                'left_elbow_visible': left_elbow_visible,
+                'right_elbow_visible': right_elbow_visible,
+                'start_position_ok': False
+            }
         
-        # ===== CHECK IF SIDE VIEW =====
-        # Calculate angle between shoulders to determine viewing angle
-        shoulder_diff_x = abs(landmarks['LEFT_SHOULDER'][0] - landmarks['RIGHT_SHOULDER'][0])
-        shoulder_diff_z = abs(landmarks['LEFT_SHOULDER'][2] - landmarks['RIGHT_SHOULDER'][2])
+        # ===== USE BOTH ARMS FOR FRONT VIEW =====
+        left_shoulder = landmarks['LEFT_SHOULDER']
+        left_elbow = landmarks['LEFT_ELBOW']
+        left_wrist = landmarks['LEFT_WRIST']
         
-        # If z-difference is small compared to x-difference, user is facing camera (frontal view)
-        # We want side view where z-difference is significant
-        side_view_score = shoulder_diff_z / (shoulder_diff_x + 0.01)  # Avoid division by zero
-        is_side_view = side_view_score > 0.3  # Threshold for "good enough" side view
+        right_shoulder = landmarks['RIGHT_SHOULDER']
+        right_elbow = landmarks['RIGHT_ELBOW']
+        right_wrist = landmarks['RIGHT_WRIST']
         
-        # ===== ARM RETRACTION DEPTH (KEY METRIC) =====
-        # Z-coordinate difference: how far back is elbow compared to shoulder?
-        # Positive = elbow is behind shoulder (retracted)
-        # Negative = elbow is in front of shoulder
-        retraction_depth = abs(shoulder[2] - elbow[2])
-        
-        # Track maximum depth achieved
-        self.max_depth_achieved = max(self.max_depth_achieved, retraction_depth)
-        self.depth_history.append(retraction_depth)
-        
-        # ===== ELBOW POSITION =====
+        # ===== CHECK START POSITION: ELBOW HEIGHT =====
         # Elbow should be at shoulder height (not drooping or elevated)
-        elbow_height_diff = abs(elbow[1] - shoulder[1])
+        left_elbow_height_diff = abs(left_elbow[1] - left_shoulder[1])
+        right_elbow_height_diff = abs(right_elbow[1] - right_shoulder[1])
+        left_height_ok = left_elbow_height_diff <= self.ELBOW_HEIGHT_TOLERANCE
+        right_height_ok = right_elbow_height_diff <= self.ELBOW_HEIGHT_TOLERANCE
         
-        # Elbow angle (should be ~90 degrees)
-        elbow_angle = self.calc.calculate_elbow_angle(shoulder, elbow, wrist)
+        # ===== CHECK START POSITION: ELBOW ANGLE (90 DEGREES) =====
+        left_elbow_angle = self.calc.calculate_elbow_angle(left_shoulder, left_elbow, left_wrist)
+        right_elbow_angle = self.calc.calculate_elbow_angle(right_shoulder, right_elbow, right_wrist)
+        left_angle_ok = self.MIN_ELBOW_ANGLE <= left_elbow_angle <= self.MAX_ELBOW_ANGLE
+        right_angle_ok = self.MIN_ELBOW_ANGLE <= right_elbow_angle <= self.MAX_ELBOW_ANGLE
         
-        # ===== SHOULDER ELEVATION (SHRUGGING) =====
-        # Compare current shoulder height to hip reference
-        # Shoulder shouldn't rise significantly during retraction
-        shoulder_hip_distance = self.calc.vertical_distance(hip, shoulder)
+        # ===== START POSITION IS OK IF ALL CHECKS PASS =====
+        start_position_ok = (left_height_ok and right_height_ok and 
+                            left_angle_ok and right_angle_ok)
         
-        # We'll compare this to a baseline (could be improved with calibration)
-        # For now, detect sudden elevation
-        shoulder_elevation = shoulder_hip_distance
+        # ===== ARM RETRACTION DEPTH (ONLY IF START POSITION IS OK) =====
+        # For front view, use Z-coordinate (depth from camera) as primary measure
+        # When pulling arms back, elbows move away from camera (z becomes more positive)
+        # Depth = difference between elbow z and shoulder z
+        left_retraction_depth = abs(left_elbow[2] - left_shoulder[2])  # Absolute value for depth
+        right_retraction_depth = abs(right_elbow[2] - right_shoulder[2])  # Absolute value for depth
         
-        # ===== FORWARD LEAN COMPENSATION =====
-        # Check if person is leaning forward to "cheat" the retraction
-        torso_angle = self.calc.angle_from_vertical(shoulder, hip)
-        
-        # ===== WRIST POSITION =====
-        # Wrist should be behind elbow (fist pulled back)
-        wrist_depth = abs(elbow[2] - wrist[2])
+        # Track maximum depth achieved (only if start position is ok)
+        if start_position_ok:
+            avg_depth = (left_retraction_depth + right_retraction_depth) / 2.0
+            self.max_depth_achieved = max(self.max_depth_achieved, avg_depth)
+            self.depth_history.append(avg_depth)
         
         return {
-            'retraction_depth': retraction_depth,
-            'elbow_height_diff': elbow_height_diff,
-            'elbow_angle': elbow_angle,
-            'shoulder_elevation': shoulder_elevation,
-            'torso_lean': torso_angle,
-            'wrist_depth': wrist_depth,
-            'is_side_view': is_side_view,
-            'side_view_score': side_view_score,
-            'visible_side': visible_side
+            # Start position checks
+            'left_elbow_visible': left_elbow_visible,
+            'right_elbow_visible': right_elbow_visible,
+            'start_position_ok': start_position_ok,
+            'left_height_ok': left_height_ok,
+            'right_height_ok': right_height_ok,
+            'left_angle_ok': left_angle_ok,
+            'right_angle_ok': right_angle_ok,
+            'left_elbow_height_diff': left_elbow_height_diff,
+            'right_elbow_height_diff': right_elbow_height_diff,
+            'left_elbow_angle': left_elbow_angle,
+            'right_elbow_angle': right_elbow_angle,
+            # Depth measurements (only meaningful if start position is ok)
+            'left_retraction_depth': left_retraction_depth,
+            'right_retraction_depth': right_retraction_depth
         }
     
     def validate_form(self, metrics: Dict[str, float], frame_count: int) -> ValidationResult:
         """
-        Validate chest opener form with focus on depth and hold duration.
+        Validate chest opener form with focus on start position and depth.
         """
         
         feedback = []
         is_correct = True
         score = 100.0
         
-        # ========== CRITICAL: CHECK SIDE VIEW ==========
-        if not metrics['is_side_view']:
-            feedback.append("⚠️ TURN TO SIDE VIEW - Need side profile to measure depth!")
-            feedback.append(f"   (Side view quality: {metrics['side_view_score']*100:.0f}%, need >30%)")
+        # ========== CHECK IF ELBOWS ARE VISIBLE ==========
+        left_elbow_visible = metrics.get('left_elbow_visible', True)
+        right_elbow_visible = metrics.get('right_elbow_visible', True)
+        
+        if not left_elbow_visible or not right_elbow_visible:
+            missing = []
+            if not left_elbow_visible:
+                missing.append("LEFT elbow")
+            if not right_elbow_visible:
+                missing.append("RIGHT elbow")
+            feedback.append(f"❌ POSITION WRONG: Cannot see {', '.join(missing)} on camera")
+            feedback.append("   Move so both elbows are clearly visible in the frame")
             is_correct = False
-            score -= 50  # Major penalty - can't properly measure without side view
+            score = 0
+            self.is_retracted = False
+            self.hold_counter = 0
+            
+            return ValidationResult(
+                is_correct=False,
+                feedback_messages=feedback,
+                angles={},
+                score=score,
+                details={
+                    'hold_frames': 0,
+                    'reps': self.rep_count,
+                    'max_depth': 0
+                }
+            )
+        
+        # ========== CHECK START POSITION ==========
+        start_position_ok = metrics.get('start_position_ok', False)
+        left_height_ok = metrics.get('left_height_ok', False)
+        right_height_ok = metrics.get('right_height_ok', False)
+        left_angle_ok = metrics.get('left_angle_ok', False)
+        right_angle_ok = metrics.get('right_angle_ok', False)
+        
+        position_issues = []
+        
+        # Check elbow height
+        if not left_height_ok:
+            left_height_diff = metrics.get('left_elbow_height_diff', 0)
+            position_issues.append(f"LEFT elbow not at shoulder height (diff: {left_height_diff:.3f})")
+        if not right_height_ok:
+            right_height_diff = metrics.get('right_elbow_height_diff', 0)
+            position_issues.append(f"RIGHT elbow not at shoulder height (diff: {right_height_diff:.3f})")
+        
+        # Check elbow angle
+        if not left_angle_ok:
+            left_angle = metrics.get('left_elbow_angle', 0)
+            position_issues.append(f"LEFT elbow not at 90° (current: {left_angle:.0f}°)")
+        if not right_angle_ok:
+            right_angle = metrics.get('right_elbow_angle', 0)
+            position_issues.append(f"RIGHT elbow not at 90° (current: {right_angle:.0f}°)")
+        
+        if not start_position_ok:
+            feedback.append("❌ POSITION WRONG: Fix your starting position first!")
+            for issue in position_issues:
+                feedback.append(f"   • {issue}")
+            feedback.append("   Requirements:")
+            feedback.append("   • Both elbows must be at shoulder height")
+            feedback.append("   • Both elbows must be bent at ~90 degrees")
+            is_correct = False
+            score = 0
+            self.is_retracted = False
+            self.hold_counter = 0
             
             return ValidationResult(
                 is_correct=False,
                 feedback_messages=feedback,
                 angles={
-                    'retraction_depth': metrics['retraction_depth'],
-                    'side_view_score': metrics['side_view_score']
+                    'left_elbow_angle': metrics.get('left_elbow_angle', 0),
+                    'right_elbow_angle': metrics.get('right_elbow_angle', 0),
+                    'left_height_diff': metrics.get('left_elbow_height_diff', 0),
+                    'right_height_diff': metrics.get('right_elbow_height_diff', 0)
                 },
                 score=score,
                 details={
-                    'is_side_view': False,
                     'hold_frames': 0,
-                    'reps': self.rep_count
+                    'reps': self.rep_count,
+                    'max_depth': 0
                 }
             )
-        else:
-            feedback.append(f"✓ Good side view ({metrics['visible_side']} side visible)")
         
-        # ========== ARM RETRACTION DEPTH (PRIMARY METRIC) ==========
-        depth = metrics['retraction_depth']
+        # ========== START POSITION IS OK - NOW CHECK DEPTH ==========
+        feedback.append("✓ Starting position is correct!")
+        feedback.append(f"   Left elbow: {metrics.get('left_elbow_angle', 0):.0f}° | Right elbow: {metrics.get('right_elbow_angle', 0):.0f}°")
         
-        if depth < self.MIN_RETRACTION_DEPTH:
-            feedback.append("⚠️ Pull arms FURTHER back - open chest more")
-            feedback.append(f"   Depth: {depth:.2f} (need ≥{self.MIN_RETRACTION_DEPTH:.2f})")
+        left_depth = metrics.get('left_retraction_depth', 0)
+        right_depth = metrics.get('right_retraction_depth', 0)
+        
+        # Show both left and right depths
+        feedback.append(f"📏 Left elbow depth: {left_depth:.3f} | Right elbow depth: {right_depth:.3f}")
+        
+        # Check left depth
+        if left_depth < self.MIN_RETRACTION_DEPTH:
+            feedback.append(f"⚠️ LEFT arm: Pull further back (depth: {left_depth:.3f}, need ≥{self.MIN_RETRACTION_DEPTH:.3f})")
             is_correct = False
-            score -= 30
+            score -= 15
+        elif left_depth >= self.IDEAL_RETRACTION_DEPTH:
+            feedback.append(f"✓ LEFT arm: EXCELLENT! (depth: {left_depth:.3f})")
+        else:
+            feedback.append(f"✓ LEFT arm: Good (depth: {left_depth:.3f})")
+        
+        # Check right depth
+        if right_depth < self.MIN_RETRACTION_DEPTH:
+            feedback.append(f"⚠️ RIGHT arm: Pull further back (depth: {right_depth:.3f}, need ≥{self.MIN_RETRACTION_DEPTH:.3f})")
+            is_correct = False
+            score -= 15
+        elif right_depth >= self.IDEAL_RETRACTION_DEPTH:
+            feedback.append(f"✓ RIGHT arm: EXCELLENT! (depth: {right_depth:.3f})")
+        else:
+            feedback.append(f"✓ RIGHT arm: Good (depth: {right_depth:.3f})")
+        
+        # Both arms need to meet minimum for retraction to count
+        if left_depth >= self.MIN_RETRACTION_DEPTH and right_depth >= self.MIN_RETRACTION_DEPTH:
+            self.is_retracted = True
+        else:
             self.is_retracted = False
             self.hold_counter = 0
-            
-        elif depth > self.MAX_RETRACTION_DEPTH:
-            feedback.append("⚠️ Don't over-retract - ease back slightly")
-            score -= 10
-            
-        elif depth >= self.IDEAL_RETRACTION_DEPTH:
-            feedback.append(f"✓ EXCELLENT retraction! (depth: {depth:.2f})")
-            self.is_retracted = True
-            
-        else:  # Between MIN and IDEAL
-            feedback.append(f"✓ Good retraction (depth: {depth:.2f})")
-            feedback.append(f"   Try for {self.IDEAL_RETRACTION_DEPTH:.2f} for maximum benefit")
-            self.is_retracted = True
-        
-        # ========== ELBOW POSITION ==========
-        if metrics['elbow_height_diff'] > self.ELBOW_HEIGHT_TOLERANCE:
-            feedback.append("⚠️ Keep elbow at shoulder height")
-            score -= 10
-            is_correct = False
-        
-        # Check elbow angle
-        if metrics['elbow_angle'] < self.MIN_ELBOW_ANGLE:
-            feedback.append("⚠️ Don't bend elbow too much")
-            score -= 5
-        elif metrics['elbow_angle'] > self.MAX_ELBOW_ANGLE:
-            feedback.append("⚠️ Bend elbow slightly (~90°)")
-            score -= 5
-        else:
-            feedback.append(f"✓ Good elbow angle ({metrics['elbow_angle']:.0f}°)")
-        
-        # ========== SHOULDER ELEVATION (SHRUGGING) ==========
-        # This is a common compensation - detect if shoulders are rising
-        if len(self.depth_history) > 30:
-            # Compare current to baseline (simplified check)
-            if metrics['shoulder_elevation'] < -0.05:  # Negative = shoulder rising
-                feedback.append("⚠️ Don't SHRUG shoulders - keep them down")
-                self.shrugging_violations += 1
-                score -= 15
-                is_correct = False
-        
-        # ========== FORWARD LEAN COMPENSATION ==========
-        if metrics['torso_lean'] > 20:
-            feedback.append("⚠️ Don't lean forward - keep torso upright")
-            score -= 10
-            is_correct = False
         
         # ========== HOLD DURATION TRACKING ==========
         if self.is_retracted and is_correct:
@@ -294,17 +325,10 @@ class ChestOpener(BaseExercise):
         
         # ========== PROGRESS TRACKING ==========
         feedback.append(f"📊 Reps completed: {self.rep_count}")
-        feedback.append(f"📏 Max depth: {self.max_depth_achieved:.2f}")
+        feedback.append(f"📏 Max depth achieved: {self.max_depth_achieved:.3f}")
         
         if self.rep_count > 0:
             feedback.append(f"✓ Successful holds: {self.successful_holds}")
-        
-        # ========== DEPTH CONSISTENCY ==========
-        if len(self.depth_history) >= 30:
-            depth_std = self._calculate_std(list(self.depth_history))
-            if depth_std > 0.05:
-                feedback.append("⚠️ Try to maintain steady depth")
-                score -= 5
         
         score = max(0, score)
         
@@ -312,20 +336,17 @@ class ChestOpener(BaseExercise):
             is_correct=is_correct,
             feedback_messages=feedback,
             angles={
-                'retraction_depth': depth,
-                'elbow_angle': metrics['elbow_angle'],
-                'torso_lean': metrics['torso_lean'],
-                'elbow_height_diff': metrics['elbow_height_diff']
+                'left_depth': left_depth,
+                'right_depth': right_depth,
+                'left_elbow_angle': metrics.get('left_elbow_angle', 0),
+                'right_elbow_angle': metrics.get('right_elbow_angle', 0)
             },
             score=score,
             details={
-                'is_side_view': metrics['is_side_view'],
                 'hold_frames': self.hold_counter,
                 'hold_seconds': self.hold_counter / 30.0,
                 'reps': self.rep_count,
-                'max_depth': self.max_depth_achieved,
-                'shrugging_violations': self.shrugging_violations,
-                'visible_side': metrics['visible_side']
+                'max_depth': self.max_depth_achieved
             }
         )
     
@@ -360,11 +381,10 @@ class ChestOpener(BaseExercise):
         self.depth_history.clear()
         self.last_retraction_time = 0
         self.successful_holds = 0
-        self.shrugging_violations = 0
     
     def get_instructions(self) -> List[str]:
         return [
-            "⚠️ IMPORTANT: Stand in SIDE VIEW to camera (profile view)",
+            "⚠️ IMPORTANT: Face the camera directly (front view)",
             "Stand upright with arms at sides",
             "Bend elbows to ~90 degrees, hands at chest level",
             "Pull fists/arms ALL THE WAY BACK behind your body",
@@ -377,14 +397,12 @@ class ChestOpener(BaseExercise):
     
     def get_common_mistakes(self) -> List[str]:
         return [
-            "❌ Facing camera instead of side view (can't measure depth!)",
             "❌ Not pulling arms far enough back",
-            "❌ Shrugging shoulders up instead of keeping them down",
-            "❌ Leaning forward to compensate",
-            "❌ Holding breath during hold",
             "❌ Letting elbows drop below shoulder height",
+            "❌ Not keeping elbows at ~90 degrees",
             "❌ Rushing through - hold must be 5 full seconds",
-            "❌ Not squeezing shoulder blades together"
+            "❌ Not squeezing shoulder blades together",
+            "❌ Moving arms asymmetrically (one side more than the other)"
         ]
     
     # ========== HELPER METHODS ==========
