@@ -404,3 +404,6 @@ class ChestOpener(BaseExercise):
         mean = sum(values) / len(values)
         variance = sum((x - mean) ** 2 for x in values) / len(values)
         return variance ** 0.5
+
+    def get_video_url(self) -> str | None:
+        return "https://youtu.be/qjSllPcEooU?t=38" 
