@@ -361,7 +361,7 @@ class WallAngels(BaseExercise):
 
     def get_video_url(self) -> str | None:
         """Return demonstration video URL"""
-        return "https://www.youtube.com/watch?v=2joJUY4uETw"
+        return "https://www.youtube.com/watch?v=ywYi4rBhRBQ"
 
     # ========== HELPER METHODS ==========
 
@@ -386,7 +386,7 @@ class WallAngels(BaseExercise):
     ) -> float:
         """
         Calculate arm angle from horizontal plane.
-        Uses the shoulder-elbow vector.
+        Uses the shoulder-wrist vector.
 
         Returns:
         - 0° = arm pointing straight down
@@ -394,8 +394,8 @@ class WallAngels(BaseExercise):
         - 180° = arm pointing straight up
         """
         # Calculate vector from shoulder to elbow
-        dx = abs(elbow[0] - shoulder[0])
-        dy = elbow[1] - shoulder[1]
+        dx = abs(wrist[0] - shoulder[0])
+        dy = wrist[1] - shoulder[1]
 
         # Calculate angle from vertical
         # atan2(dy, dx) gives angle from horizontal
