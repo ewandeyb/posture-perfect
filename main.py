@@ -206,6 +206,12 @@ def run_session(exercise, video_ph, score_container, rep_container, metrics_cont
         frame = cv2.flip(frame, 1)
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
+        # Natural-looking video enhancement: subtle brightness/contrast adjustment
+        # This improves visibility in dim lighting without making it look processed
+        alpha = 1.05  # Contrast control (1.0 = no change, >1.0 = more contrast)
+        beta = 5      # Brightness control (0 = no change, positive = brighter)
+        frame_rgb = cv2.convertScaleAbs(frame_rgb, alpha=alpha, beta=beta)
+        
         results = detector.process(frame_rgb)
         
         if results.pose_landmarks:
