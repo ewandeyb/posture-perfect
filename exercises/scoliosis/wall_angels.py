@@ -199,7 +199,7 @@ class WallAngels(BaseExercise):
             if self._up_position_reached:
                 # Completed a full rep (up and back down)
                 self.rep_count += 1
-                feedback.append(f"✓✓✓ REP {self.rep_count} COMPLETE!")
+                feedback.append("✓✓✓ Rep complete!")
                 self._up_position_reached = False
 
         elif self.current_state == self.STATE_ARMS_UP:

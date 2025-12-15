@@ -289,8 +289,7 @@ class ChestOpener(BaseExercise):
                 self.hold_complete = False  # Reset for next rep
                 self.hold_counter = 0  # Reset hold counter
                 self.was_above_shoulders = True  # Keep this true since we're back at start
-                feedback.append(f"✓✓✓ REP {self.rep_count} COMPLETE!")
-                feedback.append("   Returned to start after completing hold!")
+                feedback.append("✓✓✓ Rep complete! Returned to start after completing hold!")
             else:
                 feedback.append("✓ Back in start position - ready for next rep")
         elif start_position_ok:
@@ -317,9 +316,6 @@ class ChestOpener(BaseExercise):
                     feedback.append("→ Rise back to start position to complete rep")
                 else:
                     feedback.append("→ Lower elbows below shoulder level, hold 2s, then rise back")
-        
-        # ========== PROGRESS TRACKING ==========
-        feedback.append(f"📊 Reps completed: {self.rep_count}")
         
         score = max(0, score)
         

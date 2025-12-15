@@ -247,7 +247,7 @@ class NeckSideToSide(BaseExercise):
             self.right_reps += 1
             self.rep_count += 1
             self._right_was_crossed = False
-            feedback.append(f"✓✓✓ RIGHT REP {self.right_reps} COMPLETE!")
+            feedback.append("✓✓✓ Right rep complete!")
         
         if all_crossed_left and not self._left_was_crossed:
             self._left_was_crossed = True
@@ -255,7 +255,7 @@ class NeckSideToSide(BaseExercise):
             self.left_reps += 1
             self.rep_count += 1
             self._left_was_crossed = False
-            feedback.append(f"✓✓✓ LEFT REP {self.left_reps} COMPLETE!")
+            feedback.append("✓✓✓ Left rep complete!")
         
         return ValidationResult(
             is_correct=is_correct,
